@@ -1,0 +1,92 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anterin-app
+    ports:
+      - "8080:80"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=anterin
+      - DB_USERNAME=admin
+      - DB_PASSWORD=admin123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - RUN_MIGRATIONS=true
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./bootstrap/cache:/var/www/html/bootstrap/cache
+    depends_on:
+      - db
+      - redis
+    networks:
+      - anterin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  db:
+    image: mysql:8.0
+    container_name: anterin-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: anterin
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin123
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - anterin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: anterin-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - anterin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: PHPMyAdmin for database management
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: anterin-phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_USER: admin
+      PMA_PASSWORD: admin123
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    networks:
+      - anterin-network
+    restart: unless-stopped
+
+volumes:
+  db_data:
+
+networks:
+  anterin-network:
+    driver: bridge
